@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>文件对比工具</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -1640,81 +1641,50 @@
 
         /* 添加移动端下载相关的样式 */
         .mobile-download {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 320px;
             background: white;
-            border-radius: 8px;
             padding: 20px;
-            margin: 15px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .mobile-download .download-button {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .mobile-download .download-info {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .mobile-download h4 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-
-        .mobile-download p {
-            margin: 5px 0;
-            color: #666;
-        }
-
-        @media screen and (max-width: 768px) {
-            .mobile-download {
-                margin: 10px;
-                padding: 15px;
-            }
-            
-            .mobile-download .download-button {
-                padding: 12px 16px;
-                font-size: 14px;
-            }
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
         }
 
         .mobile-download .download-button {
             width: 100%;
-            margin: 5px 0;
+            padding: 15px;
+            margin: 10px 0;
             border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.3s ease;
         }
 
         .mobile-download .download-button:active {
             transform: scale(0.98);
         }
 
-        .mobile-download .download-button:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        @media screen and (max-width: 768px) {
-            .mobile-download {
-                position: fixed;
-                left: 50%;
-                top: 50%;
-                transform: translate(-50%, -50%);
-                width: 90%;
-                max-width: 320px;
-                z-index: 1000;
-                background: white;
-                box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-            }
+        .mobile-download::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: -1;
         }
     </style>
 </head>
@@ -2768,8 +2738,10 @@
         // 修改 downloadMergedFile 函数
         function downloadMergedFile(blobUrlId, fileName) {
             const blobUrl = window[blobUrlId];
-            if (!blobUrl) {
-                console.error('Blob URL not found');
+            const blob = window[blobUrlId + '_blob'];
+            
+            if (!blob) {
+                console.error('Blob not found');
                 return;
             }
 
@@ -2782,26 +2754,21 @@
                     const downloadLink = document.createElement('div');
                     downloadLink.className = 'download-card mobile-download';
                     
-                    // 创建一个新的 Blob URL，确保它在整个会话中保持有效
-                    const downloadBlob = window[blobUrlId + '_blob'];
-                    const downloadUrl = blobUrl;
-                    
                     downloadLink.innerHTML = `
                         <div class="download-info">
                             <h4>文件已准备好</h4>
                             <p>点击下方按钮开始下载</p>
                         </div>
-                        <button onclick="window.open('${downloadUrl}')" class="download-button">
+                        <button onclick="saveAs(window['${blobUrlId}_blob'], '${fileName}')" class="download-button">
                             <span class="download-icon">⭳</span>
                             <span>下载 ${fileName}</span>
                         </button>
-                        <button onclick="location.href='${downloadUrl}'" class="download-button" style="margin-top: 10px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
-                            <span class="download-icon">↓</span>
-                            <span>备选下载方式</span>
-                        </button>
-                        <p style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;">
-                            如果上方按钮无效，请尝试备选下载方式
-                        </p>
+                        <div style="margin-top: 15px; text-align: center;">
+                            <button onclick="closeDownloadCard(this)" class="download-button" 
+                                    style="background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); width: auto; padding: 8px 20px;">
+                                关闭
+                            </button>
+                        </div>
                     `;
 
                     // 替换原有的下载卡片
@@ -2814,20 +2781,17 @@
                     setTimeout(() => {
                         URL.revokeObjectURL(blobUrl);
                         delete window[blobUrlId];
+                        delete window[blobUrlId + '_blob'];
                     }, 60000);
 
                 } else {
-                    // 桌面端下载处理（保持不变）
-                    const a = document.createElement('a');
-                    a.href = blobUrl;
-                    a.download = fileName;
-                    document.body.appendChild(a);
-                    a.click();
+                    // 桌面端下载处理
+                    saveAs(blob, fileName);
                     
                     setTimeout(() => {
-                        document.body.removeChild(a);
                         URL.revokeObjectURL(blobUrl);
                         delete window[blobUrlId];
+                        delete window[blobUrlId + '_blob'];
                         
                         const downloadCard = document.querySelector('.download-card');
                         if (downloadCard) {
@@ -2838,6 +2802,14 @@
             } catch (error) {
                 console.error('Download failed:', error);
                 alert('下载失败，请重试');
+            }
+        }
+
+        // 添加关闭下载卡片的函数
+        function closeDownloadCard(button) {
+            const card = button.closest('.mobile-download');
+            if (card) {
+                card.remove();
             }
         }
 
