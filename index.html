@@ -1686,6 +1686,36 @@
                 font-size: 14px;
             }
         }
+
+        .mobile-download .download-button {
+            width: 100%;
+            margin: 5px 0;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .mobile-download .download-button:active {
+            transform: scale(0.98);
+        }
+
+        .mobile-download .download-button:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        @media screen and (max-width: 768px) {
+            .mobile-download {
+                position: fixed;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                width: 90%;
+                max-width: 320px;
+                z-index: 1000;
+                background: white;
+                box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            }
+        }
     </style>
 </head>
 <body>
@@ -2701,6 +2731,8 @@
                 const blobUrl = URL.createObjectURL(blob);
                 // 将 blob URL 存储在 window 对象上，以防被垃圾回收
                 window[blobUrlId] = blobUrl;
+                // 保存 blob 对象以供后续使用
+                window[blobUrlId + '_blob'] = blob;
 
                 downloadCard.innerHTML = `
                     <div class="download-info">
@@ -2749,17 +2781,26 @@
                     // 移动设备下载处理
                     const downloadLink = document.createElement('div');
                     downloadLink.className = 'download-card mobile-download';
+                    
+                    // 创建一个新的 Blob URL，确保它在整个会话中保持有效
+                    const downloadBlob = window[blobUrlId + '_blob'];
+                    const downloadUrl = blobUrl;
+                    
                     downloadLink.innerHTML = `
                         <div class="download-info">
                             <h4>文件已准备好</h4>
-                            <p>请点击下方链接下载文件</p>
+                            <p>点击下方按钮开始下载</p>
                         </div>
-                        <a href="${blobUrl}" download="${fileName}" class="download-button" style="text-decoration: none; display: block; text-align: center;">
+                        <button onclick="window.open('${downloadUrl}')" class="download-button">
                             <span class="download-icon">⭳</span>
-                            <span>点击下载 ${fileName}</span>
-                        </a>
+                            <span>下载 ${fileName}</span>
+                        </button>
+                        <button onclick="location.href='${downloadUrl}'" class="download-button" style="margin-top: 10px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+                            <span class="download-icon">↓</span>
+                            <span>备选下载方式</span>
+                        </button>
                         <p style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;">
-                            如果下载没有自动开始，请长按上方按钮并选择"下载文件"或"保存文件"
+                            如果上方按钮无效，请尝试备选下载方式
                         </p>
                     `;
 
@@ -2769,26 +2810,25 @@
                         oldCard.parentNode.replaceChild(downloadLink, oldCard);
                     }
 
-                    // 30秒后清理资源
+                    // 60秒后清理资源
                     setTimeout(() => {
                         URL.revokeObjectURL(blobUrl);
                         delete window[blobUrlId];
-                    }, 30000);
+                    }, 60000);
+
                 } else {
-                    // 桌面端下载处理
+                    // 桌面端下载处理（保持不变）
                     const a = document.createElement('a');
                     a.href = blobUrl;
                     a.download = fileName;
                     document.body.appendChild(a);
                     a.click();
                     
-                    // 清理
                     setTimeout(() => {
                         document.body.removeChild(a);
                         URL.revokeObjectURL(blobUrl);
                         delete window[blobUrlId];
                         
-                        // 移除下载卡片
                         const downloadCard = document.querySelector('.download-card');
                         if (downloadCard) {
                             downloadCard.remove();
