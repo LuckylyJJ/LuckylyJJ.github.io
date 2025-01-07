@@ -1685,6 +1685,65 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: -1;
         }
+
+        .download-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .mobile-download {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 320px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        .mobile-download .download-button {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .mobile-download .download-button:active {
+            transform: scale(0.98);
+        }
+
+        @media screen and (max-width: 768px) {
+            .mobile-download {
+                width: 85%;
+                padding: 15px;
+            }
+            
+            .mobile-download .download-button {
+                padding: 12px;
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2752,22 +2811,21 @@
                     const downloadLink = document.createElement('div');
                     downloadLink.className = 'download-card mobile-download';
                     
-                    // 创建一个新的下载链接
+                    // 创建下载链接
                     const downloadUrl = URL.createObjectURL(blob);
-                    
-                    // 创建一个隐藏的 iframe 用于下载
-                    const iframe = document.createElement('iframe');
-                    iframe.style.display = 'none';
-                    document.body.appendChild(iframe);
                     
                     downloadLink.innerHTML = `
                         <div class="download-info">
                             <h4>文件已准备好</h4>
                             <p>点击下方按钮开始下载</p>
                         </div>
-                        <button onclick="triggerDownload('${downloadUrl}', '${fileName}', this)" class="download-button">
+                        <a href="${downloadUrl}" download="${fileName}" class="download-button" style="text-decoration: none;">
                             <span class="download-icon">⭳</span>
                             <span>下载 ${fileName}</span>
+                        </a>
+                        <button onclick="location.href='${downloadUrl}'" class="download-button" style="margin-top: 10px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+                            <span class="download-icon">↓</span>
+                            <span>备选下载方式</span>
                         </button>
                         <div style="margin-top: 15px; text-align: center;">
                             <button onclick="closeDownloadCard(this)" class="download-button" 
@@ -2775,21 +2833,32 @@
                                 关闭
                             </button>
                         </div>
+                        <p style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;">
+                            如果下载没有自动开始，请尝试使用备选下载方式
+                        </p>
                     `;
+
+                    // 添加半透明背景遮罩
+                    const overlay = document.createElement('div');
+                    overlay.className = 'download-overlay';
+                    document.body.appendChild(overlay);
 
                     // 替换原有的下载卡片
                     const oldCard = document.querySelector('.download-card');
                     if (oldCard) {
                         oldCard.parentNode.replaceChild(downloadLink, oldCard);
+                    } else {
+                        document.body.appendChild(downloadLink);
                     }
 
-                    // 60秒后清理资源
+                    // 120秒后清理资源
                     setTimeout(() => {
                         URL.revokeObjectURL(downloadUrl);
-                        if (iframe) {
-                            document.body.removeChild(iframe);
+                        const overlay = document.querySelector('.download-overlay');
+                        if (overlay) {
+                            overlay.remove();
                         }
-                    }, 60000);
+                    }, 120000);
 
                 } else {
                     // 桌面端下载处理
@@ -2816,39 +2885,15 @@
             }
         }
 
-        // 添加触发下载的函数
-        function triggerDownload(url, fileName, button) {
-            try {
-                // 尝试使用 iframe 下载
-                const iframe = document.querySelector('iframe');
-                if (iframe) {
-                    iframe.src = url;
-                }
-
-                // 同时也尝试直接打开链接
-                window.open(url, '_blank');
-
-                // 更新按钮状态
-                button.innerHTML = '<span class="download-icon">✓</span><span>下载已开始</span>';
-                button.style.background = 'linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)';
-                button.disabled = true;
-
-                // 添加提示信息
-                const tip = document.createElement('p');
-                tip.style.cssText = 'margin-top: 10px; font-size: 12px; color: #666; text-align: center;';
-                tip.textContent = '如果下载没有自动开始，请检查浏览器下载权限设置';
-                button.parentNode.appendChild(tip);
-            } catch (error) {
-                console.error('Download trigger failed:', error);
-                alert('触发下载失败，请重试或检查浏览器设置');
-            }
-        }
-
-        // 添加关闭下载卡片的函数
+        // 修改关闭下载卡片的函数
         function closeDownloadCard(button) {
             const card = button.closest('.mobile-download');
+            const overlay = document.querySelector('.download-overlay');
             if (card) {
                 card.remove();
+            }
+            if (overlay) {
+                overlay.remove();
             }
         }
 
