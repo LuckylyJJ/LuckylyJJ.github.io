@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>文件对比工具</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -2737,7 +2736,6 @@
 
         // 修改 downloadMergedFile 函数
         function downloadMergedFile(blobUrlId, fileName) {
-            const blobUrl = window[blobUrlId];
             const blob = window[blobUrlId + '_blob'];
             
             if (!blob) {
@@ -2754,12 +2752,20 @@
                     const downloadLink = document.createElement('div');
                     downloadLink.className = 'download-card mobile-download';
                     
+                    // 创建一个新的下载链接
+                    const downloadUrl = URL.createObjectURL(blob);
+                    
+                    // 创建一个隐藏的 iframe 用于下载
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    document.body.appendChild(iframe);
+                    
                     downloadLink.innerHTML = `
                         <div class="download-info">
                             <h4>文件已准备好</h4>
                             <p>点击下方按钮开始下载</p>
                         </div>
-                        <button onclick="saveAs(window['${blobUrlId}_blob'], '${fileName}')" class="download-button">
+                        <button onclick="triggerDownload('${downloadUrl}', '${fileName}', this)" class="download-button">
                             <span class="download-icon">⭳</span>
                             <span>下载 ${fileName}</span>
                         </button>
@@ -2779,19 +2785,24 @@
 
                     // 60秒后清理资源
                     setTimeout(() => {
-                        URL.revokeObjectURL(blobUrl);
-                        delete window[blobUrlId];
-                        delete window[blobUrlId + '_blob'];
+                        URL.revokeObjectURL(downloadUrl);
+                        if (iframe) {
+                            document.body.removeChild(iframe);
+                        }
                     }, 60000);
 
                 } else {
                     // 桌面端下载处理
-                    saveAs(blob, fileName);
+                    const a = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
                     
                     setTimeout(() => {
-                        URL.revokeObjectURL(blobUrl);
-                        delete window[blobUrlId];
-                        delete window[blobUrlId + '_blob'];
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
                         
                         const downloadCard = document.querySelector('.download-card');
                         if (downloadCard) {
@@ -2802,6 +2813,34 @@
             } catch (error) {
                 console.error('Download failed:', error);
                 alert('下载失败，请重试');
+            }
+        }
+
+        // 添加触发下载的函数
+        function triggerDownload(url, fileName, button) {
+            try {
+                // 尝试使用 iframe 下载
+                const iframe = document.querySelector('iframe');
+                if (iframe) {
+                    iframe.src = url;
+                }
+
+                // 同时也尝试直接打开链接
+                window.open(url, '_blank');
+
+                // 更新按钮状态
+                button.innerHTML = '<span class="download-icon">✓</span><span>下载已开始</span>';
+                button.style.background = 'linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)';
+                button.disabled = true;
+
+                // 添加提示信息
+                const tip = document.createElement('p');
+                tip.style.cssText = 'margin-top: 10px; font-size: 12px; color: #666; text-align: center;';
+                tip.textContent = '如果下载没有自动开始，请检查浏览器下载权限设置';
+                button.parentNode.appendChild(tip);
+            } catch (error) {
+                console.error('Download trigger failed:', error);
+                alert('触发下载失败，请重试或检查浏览器设置');
             }
         }
 
