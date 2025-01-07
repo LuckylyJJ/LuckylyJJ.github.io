@@ -2647,13 +2647,19 @@
                 // 创建下载卡片
                 const downloadCard = document.createElement('div');
                 downloadCard.className = 'download-card';
+                // 创建一个唯一的 ID 来存储 blob URL
+                const blobUrlId = 'blob-' + Date.now();
+                const blobUrl = URL.createObjectURL(blob);
+                // 将 blob URL 存储在 window 对象上，以防被垃圾回收
+                window[blobUrlId] = blobUrl;
+
                 downloadCard.innerHTML = `
                     <div class="download-info">
                         <h4>合并完成</h4>
                         <p>文件名: ${fileName}</p>
                         <p>文件大小: ${formatFileSize(blob.size)}</p>
                     </div>
-                    <button class="download-button" onclick="downloadMergedFile('${URL.createObjectURL(blob)}', '${fileName}')">
+                    <button class="download-button" onclick="downloadMergedFile('${blobUrlId}', '${fileName}')">
                         <span class="download-icon">⭳</span>
                         <span>下载合并文件</span>
                     </button>
@@ -2678,19 +2684,37 @@
             }
         }
 
-        function downloadMergedFile(url, fileName) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            // 移除下载卡片
-            const downloadCard = document.querySelector('.download-card');
-            if (downloadCard) {
-                downloadCard.remove();
+        // 修改 downloadMergedFile 函数
+        function downloadMergedFile(blobUrlId, fileName) {
+            const blobUrl = window[blobUrlId];
+            if (!blobUrl) {
+                console.error('Blob URL not found');
+                return;
+            }
+
+            try {
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = fileName;
+                // 确保元素被添加到 DOM 中
+                document.body.appendChild(a);
+                // 触发点击
+                a.click();
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(blobUrl);
+                    delete window[blobUrlId];
+                    
+                    // 移除下载卡片
+                    const downloadCard = document.querySelector('.download-card');
+                    if (downloadCard) {
+                        downloadCard.remove();
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Download failed:', error);
+                alert('下载失败，请重试');
             }
         }
 
